@@ -1,62 +1,48 @@
 
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { AdminDashboard } from '@/components/AdminDashboard';
 import { TeacherDashboard } from '@/components/TeacherDashboard';
 import { StudentDashboard } from '@/components/StudentDashboard';
 import { ChatInterface } from '@/components/ChatInterface';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { UserManagement } from '@/components/UserManagement';
+import { CalendarInterface } from '@/components/CalendarInterface';
+import { AssignmentInterface } from '@/components/AssignmentInterface';
+import { useAuth } from '@/hooks/useAuth';
 
-type UserRole = 'admin' | 'teacher' | 'student';
 type CurrentView = 'dashboard' | 'chat' | 'calendar' | 'assignments' | 'users';
 
-interface User {
-  name: string;
-  email: string;
-  role: UserRole;
-}
-
 const Index = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [currentView, setCurrentView] = useState<CurrentView>('dashboard');
-  const [loginEmail, setLoginEmail] = useState('');
+  const { user, profile, loading } = useAuth();
+  const navigate = useNavigate();
+  const [currentView, setCurrentView] = React.useState<CurrentView>('dashboard');
 
-  // Demo Accounts
-  const demoAccounts = [
-    { email: 'admin@nachhilfe.de', name: 'Admin User', role: 'admin' as UserRole },
-    { email: 'arif@nachhilfe.de', name: 'Arif Mustafa', role: 'teacher' as UserRole },
-    { email: 'nico@student.de', name: 'Nico Schmidt', role: 'student' as UserRole },
-    { email: 'fabian@student.de', name: 'Fabian Weber', role: 'student' as UserRole },
-  ];
-
-  const handleLogin = () => {
-    const user = demoAccounts.find(account => account.email === loginEmail);
-    if (user) {
-      setCurrentUser(user);
-      setIsLoggedIn(true);
-      setCurrentView('dashboard');
-    } else {
-      alert('Benutzer nicht gefunden. Verwenden Sie eine der Demo-E-Mail-Adressen.');
+  useEffect(() => {
+    if (!loading && !user) {
+      navigate('/auth');
     }
-  };
+  }, [user, loading, navigate]);
 
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setCurrentUser(null);
-    setLoginEmail('');
-    setCurrentView('dashboard');
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Lädt...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
+    return null;
+  }
 
   const renderContent = () => {
-    if (!currentUser) return null;
-
     switch (currentView) {
       case 'dashboard':
-        switch (currentUser.role) {
+        switch (profile.role) {
           case 'admin':
             return <AdminDashboard />;
           case 'teacher':
@@ -67,15 +53,25 @@ const Index = () => {
             return <div>Rolle nicht erkannt</div>;
         }
       case 'chat':
-        if (currentUser.role === 'teacher' || currentUser.role === 'student') {
-          return <ChatInterface userRole={currentUser.role} />;
+        if (profile.role === 'teacher' || profile.role === 'student') {
+          return <ChatInterface userRole={profile.role} />;
         }
         return <div>Chat nicht verfügbar für diese Rolle</div>;
       case 'users':
-        if (currentUser.role === 'admin') {
-          return <AdminDashboard />;
+        if (profile.role === 'admin') {
+          return <UserManagement />;
         }
         return <div>Keine Berechtigung</div>;
+      case 'calendar':
+        if (profile.role === 'teacher' || profile.role === 'student') {
+          return <CalendarInterface userRole={profile.role} />;
+        }
+        return <div>Kalender nicht verfügbar für diese Rolle</div>;
+      case 'assignments':
+        if (profile.role === 'teacher' || profile.role === 'student') {
+          return <AssignmentInterface userRole={profile.role} />;
+        }
+        return <div>Aufgaben nicht verfügbar für diese Rolle</div>;
       default:
         return (
           <div className="text-center py-12">
@@ -86,63 +82,12 @@ const Index = () => {
     }
   };
 
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-blue-600">Online Nachhilfe</CardTitle>
-            <p className="text-gray-600">Anmelden für den Demo-Zugang</p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-Mail</Label>
-              <Input
-                id="email"
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="E-Mail-Adresse eingeben"
-              />
-            </div>
-            
-            <Button onClick={handleLogin} className="w-full bg-blue-600 hover:bg-blue-700">
-              Anmelden
-            </Button>
-
-            <div className="space-y-3 pt-4">
-              <p className="text-sm font-medium text-gray-700">Demo-Accounts:</p>
-              {demoAccounts.map((account) => (
-                <div
-                  key={account.email}
-                  className="flex justify-between items-center p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
-                  onClick={() => setLoginEmail(account.email)}
-                >
-                  <div>
-                    <p className="font-medium text-sm">{account.name}</p>
-                    <p className="text-xs text-gray-500 capitalize">{account.role}</p>
-                  </div>
-                  <p className="text-xs text-blue-600">{account.email}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-4 border-t border-gray-200">
-              <p className="text-xs text-gray-500 text-center">
-                Für vollständige Funktionalität (Echtzeit-Chat, Datenspeicherung) 
-                ist eine Supabase-Integration erforderlich.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <Layout 
-      userRole={currentUser.role} 
-      currentUser={currentUser}
+      userRole={profile.role as 'admin' | 'teacher' | 'student'} 
+      currentUser={profile}
+      currentView={currentView}
+      onViewChange={setCurrentView}
     >
       {renderContent()}
     </Layout>

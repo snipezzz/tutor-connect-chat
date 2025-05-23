@@ -11,12 +11,24 @@ interface LayoutProps {
     email: string;
     role: string;
   };
+  currentView: string;
+  onViewChange: (view: string) => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, userRole, currentUser }) => {
+export const Layout: React.FC<LayoutProps> = ({ 
+  children, 
+  userRole, 
+  currentUser, 
+  currentView, 
+  onViewChange 
+}) => {
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <Sidebar userRole={userRole} />
+      <Sidebar 
+        userRole={userRole} 
+        currentView={currentView}
+        onViewChange={onViewChange}
+      />
       <div className="flex-1 flex flex-col">
         <TopBar currentUser={currentUser} />
         <main className="flex-1 p-6 overflow-y-auto">

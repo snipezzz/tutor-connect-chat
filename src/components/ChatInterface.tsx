@@ -1,24 +1,27 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Send, Paperclip, Smile } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface Message {
   id: string;
-  text: string;
-  sender: 'me' | 'other';
-  timestamp: string;
-  senderName: string;
+  content: string;
+  sender_id: string;
+  receiver_id: string;
+  created_at: string;
+  sender: {
+    name: string;
+  };
 }
 
-interface ChatContact {
+interface Contact {
   id: string;
   name: string;
-  role: 'teacher' | 'student';
-  isOnline: boolean;
-  lastMessage: string;
+  role: string;
   unreadCount: number;
 }
 
@@ -29,29 +32,153 @@ interface ChatInterfaceProps {
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ userRole }) => {
   const [selectedContact, setSelectedContact] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const { profile } = useAuth();
+  const { toast } = useToast();
 
-  // Mock data - würde später aus Supabase kommen
-  const contacts: ChatContact[] = userRole === 'teacher' 
-    ? [
-        { id: '1', name: 'Nico Schmidt', role: 'student', isOnline: true, lastMessage: 'Danke für die Hilfe heute!', unreadCount: 2 },
-        { id: '2', name: 'Fabian Weber', role: 'student', isOnline: false, lastMessage: 'Wann ist unser nächster Termin?', unreadCount: 0 },
-      ]
-    : [
-        { id: '1', name: 'Arif Mustafa', role: 'teacher', isOnline: true, lastMessage: 'Gerne! Lass mich wissen wenn du Fragen hast.', unreadCount: 1 },
-      ];
-
-  const messages: Message[] = [
-    { id: '1', text: 'Hallo! Ich brauche Hilfe bei den Quadratischen Gleichungen.', sender: 'other', timestamp: '14:30', senderName: 'Nico Schmidt' },
-    { id: '2', text: 'Hallo Nico! Kein Problem, womit genau hast du Schwierigkeiten?', sender: 'me', timestamp: '14:32', senderName: 'Arif Mustafa' },
-    { id: '3', text: 'Ich verstehe nicht, wie ich die Lösungsformel anwenden soll.', sender: 'other', timestamp: '14:33', senderName: 'Nico Schmidt' },
-    { id: '4', text: 'Lass uns das Schritt für Schritt durchgehen. Hast du die Aufgabe zur Hand?', sender: 'me', timestamp: '14:35', senderName: 'Arif Mustafa' },
-  ];
-
-  const handleSendMessage = () => {
-    if (messageText.trim()) {
-      console.log('Sending message:', messageText);
-      setMessageText('');
+  useEffect(() => {
+    if (profile) {
+      loadContacts();
     }
+  }, [profile]);
+
+  useEffect(() => {
+    if (selectedContact) {
+      loadMessages();
+      markAsRead();
+    }
+  }, [selectedContact]);
+
+  useEffect(() => {
+    if (selectedContact) {
+      const channel = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `receiver_id=eq.${profile?.id}`,
+          },
+          (payload) => {
+            if (payload.new.sender_id === selectedContact) {
+              loadMessages();
+            }
+            loadContacts();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [selectedContact, profile?.id]);
+
+  const loadContacts = async () => {
+    if (!profile) return;
+
+    let query = supabase
+      .from('teacher_student_assignments')
+      .select(`
+        teacher_id,
+        student_id,
+        teacher:profiles!teacher_student_assignments_teacher_id_fkey(id, name, role),
+        student:profiles!teacher_student_assignments_student_id_fkey(id, name, role)
+      `);
+
+    if (userRole === 'teacher') {
+      query = query.eq('teacher_id', profile.id);
+    } else {
+      query = query.eq('student_id', profile.id);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error loading contacts:', error);
+      return;
+    }
+
+    const contactList = data?.map((assignment: any) => {
+      const contact = userRole === 'teacher' ? assignment.student : assignment.teacher;
+      return {
+        id: contact.id,
+        name: contact.name,
+        role: contact.role,
+        unreadCount: 0,
+      };
+    }) || [];
+
+    for (let contact of contactList) {
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('sender_id', contact.id)
+        .eq('receiver_id', profile.id)
+        .is('read_at', null);
+      
+      contact.unreadCount = count || 0;
+    }
+
+    setContacts(contactList);
+  };
+
+  const loadMessages = async () => {
+    if (!profile || !selectedContact) return;
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:profiles!messages_sender_id_fkey(name)
+      `)
+      .or(`and(sender_id.eq.${profile.id},receiver_id.eq.${selectedContact}),and(sender_id.eq.${selectedContact},receiver_id.eq.${profile.id})`)
+      .order('created_at');
+
+    if (error) {
+      console.error('Error loading messages:', error);
+      return;
+    }
+
+    setMessages(data || []);
+  };
+
+  const markAsRead = async () => {
+    if (!profile || !selectedContact) return;
+
+    await supabase
+      .from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('sender_id', selectedContact)
+      .eq('receiver_id', profile.id)
+      .is('read_at', null);
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim() || !profile || !selectedContact) return;
+
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: profile.id,
+        receiver_id: selectedContact,
+        content: messageText.trim(),
+      });
+
+    if (error) {
+      toast({
+        title: "Fehler",
+        description: "Nachricht konnte nicht gesendet werden.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setMessageText('');
+    loadMessages();
   };
 
   return (
@@ -74,17 +201,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ userRole }) => {
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-semibold">{contact.name.charAt(0)}</span>
-                    </div>
-                    {contact.isOnline && (
-                      <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 border-2 border-white rounded-full"></div>
-                    )}
+                  <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <span className="text-blue-600 font-semibold">{contact.name.charAt(0)}</span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-gray-900 truncate">{contact.name}</h3>
-                    <p className="text-sm text-gray-500 truncate">{contact.lastMessage}</p>
+                    <p className="text-sm text-gray-500 capitalize">{contact.role}</p>
                   </div>
                 </div>
                 {contact.unreadCount > 0 && (
@@ -114,9 +236,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ userRole }) => {
                   <h3 className="font-medium text-gray-900">
                     {contacts.find(c => c.id === selectedContact)?.name}
                   </h3>
-                  <p className="text-sm text-gray-500">
-                    {contacts.find(c => c.id === selectedContact)?.isOnline ? 'Online' : 'Offline'}
-                  </p>
+                  <p className="text-sm text-gray-500">Online</p>
                 </div>
               </div>
             </div>
@@ -126,18 +246,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ userRole }) => {
               {messages.map((message) => (
                 <div
                   key={message.id}
-                  className={`flex ${message.sender === 'me' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex ${message.sender_id === profile?.id ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg shadow-sm ${
-                      message.sender === 'me'
+                      message.sender_id === profile?.id
                         ? 'bg-blue-600 text-white'
                         : 'bg-white text-gray-900 border border-gray-200'
                     }`}
                   >
-                    <p className="text-sm">{message.text}</p>
-                    <p className={`text-xs mt-1 ${message.sender === 'me' ? 'text-blue-100' : 'text-gray-500'}`}>
-                      {message.timestamp}
+                    <p className="text-sm">{message.content}</p>
+                    <p className={`text-xs mt-1 ${message.sender_id === profile?.id ? 'text-blue-100' : 'text-gray-500'}`}>
+                      {new Date(message.created_at).toLocaleTimeString('de-DE', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
                     </p>
                   </div>
                 </div>
@@ -169,7 +292,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ userRole }) => {
         ) : (
           <div className="flex-1 flex items-center justify-center bg-gray-50">
             <div className="text-center">
-              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <div className="h-12 w-12 text-gray-400 mx-auto mb-4">💬</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">Wählen Sie einen Kontakt</h3>
               <p className="text-gray-500">Klicken Sie auf einen Kontakt, um eine Unterhaltung zu beginnen.</p>
             </div>
