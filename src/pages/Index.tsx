@@ -11,7 +11,7 @@ import { CalendarInterface } from '@/components/CalendarInterface';
 import { AssignmentInterface } from '@/components/AssignmentInterface';
 import { useAuth } from '@/hooks/useAuth';
 
-type CurrentView = 'dashboard' | 'chat' | 'calendar' | 'assignments' | 'users';
+type CurrentView = 'dashboard' | 'chat' | 'calendar' | 'assignments' | 'users' | 'students' | 'teachers' | 'settings';
 
 const Index = () => {
   const { user, profile, loading } = useAuth();
@@ -23,6 +23,10 @@ const Index = () => {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
+
+  const handleViewChange = (view: string) => {
+    setCurrentView(view as CurrentView);
+  };
 
   if (loading) {
     return (
@@ -72,6 +76,21 @@ const Index = () => {
           return <AssignmentInterface userRole={profile.role} />;
         }
         return <div>Aufgaben nicht verfügbar für diese Rolle</div>;
+      case 'students':
+        if (profile.role === 'teacher') {
+          return <div>Meine Schüler - Feature in Entwicklung</div>;
+        }
+        return <div>Keine Berechtigung</div>;
+      case 'teachers':
+        if (profile.role === 'student') {
+          return <div>Meine Lehrer - Feature in Entwicklung</div>;
+        }
+        return <div>Keine Berechtigung</div>;
+      case 'settings':
+        if (profile.role === 'admin') {
+          return <div>Einstellungen - Feature in Entwicklung</div>;
+        }
+        return <div>Keine Berechtigung</div>;
       default:
         return (
           <div className="text-center py-12">
@@ -87,7 +106,7 @@ const Index = () => {
       userRole={profile.role as 'admin' | 'teacher' | 'student'} 
       currentUser={profile}
       currentView={currentView}
-      onViewChange={setCurrentView}
+      onViewChange={handleViewChange}
     >
       {renderContent()}
     </Layout>
