@@ -59,6 +59,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('Fetching or creating profile for user:', userId);
     console.log('Attempting to fetch profile...');
 
+    console.log('Before supabase profiles select...');
+
     try {
       // Versuche zuerst das Profil zu laden
       const { data: existingProfile, error: fetchError } = await supabase
@@ -66,7 +68,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('id', userId)
         .maybeSingle();
-      
+
+      console.log('After supabase profiles select.');
+
       console.log('Fetch profile attempt complete.');
 
       if (fetchError) {
