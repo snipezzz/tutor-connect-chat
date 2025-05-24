@@ -11,7 +11,7 @@ export type Database = {
     Tables: {
       appointments: {
         Row: {
-          created_at: string
+          created_at: string | null
           description: string | null
           end_time: string
           id: string
@@ -22,18 +22,18 @@ export type Database = {
           title: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           end_time: string
           id?: string
           start_time: string
-          status?: string
+          status: string
           student_id: string
           teacher_id: string
           title: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           end_time?: string
           id?: string
@@ -62,7 +62,7 @@ export type Database = {
       }
       assignments: {
         Row: {
-          created_at: string
+          created_at: string | null
           description: string | null
           due_date: string | null
           file_url: string | null
@@ -73,18 +73,18 @@ export type Database = {
           title: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           due_date?: string | null
           file_url?: string | null
           id?: string
-          status?: string
+          status: string
           student_id: string
           teacher_id: string
           title: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           due_date?: string | null
           file_url?: string | null
@@ -114,7 +114,7 @@ export type Database = {
       messages: {
         Row: {
           content: string
-          created_at: string
+          created_at: string | null
           id: string
           read_at: string | null
           receiver_id: string
@@ -122,7 +122,7 @@ export type Database = {
         }
         Insert: {
           content: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           read_at?: string | null
           receiver_id: string
@@ -130,7 +130,7 @@ export type Database = {
         }
         Update: {
           content?: string
-          created_at?: string
+          created_at?: string | null
           id?: string
           read_at?: string | null
           receiver_id?: string
@@ -155,46 +155,46 @@ export type Database = {
       }
       profiles: {
         Row: {
-          created_at: string
+          created_at: string | null
           email: string
           id: string
           name: string
           role: Database["public"]["Enums"]["app_role"]
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           email: string
           id: string
           name: string
-          role?: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           email?: string
           id?: string
           name?: string
           role?: Database["public"]["Enums"]["app_role"]
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
       teacher_student_assignments: {
         Row: {
-          created_at: string
+          created_at: string | null
           id: string
           student_id: string
           teacher_id: string
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           student_id: string
           teacher_id: string
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           id?: string
           student_id?: string
           teacher_id?: string

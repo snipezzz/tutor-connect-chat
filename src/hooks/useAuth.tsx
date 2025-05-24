@@ -22,45 +22,78 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('Setting up auth state listener...');
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
+          console.log('User found, fetching profile...');
+          // Verwende setTimeout, um Deadlocks zu vermeiden
           setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            setProfile(profileData);
+            try {
+              const { data: profileData, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+              
+              if (error) {
+                console.error('Error fetching profile:', error);
+              } else {
+                console.log('Profile loaded:', profileData);
+                setProfile(profileData);
+              }
+            } catch (err) {
+              console.error('Error in profile fetch:', err);
+            }
           }, 0);
         } else {
+          console.log('No user, clearing profile');
           setProfile(null);
         }
         setLoading(false);
       }
     );
 
+    // Prüfe initial Session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
+      
       if (session?.user) {
+        console.log('Initial user found, fetching profile...');
         supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single()
-          .then(({ data }) => setProfile(data));
+          .then(({ data, error }) => {
+            if (error) {
+              console.error('Error fetching initial profile:', error);
+            } else {
+              console.log('Initial profile loaded:', data);
+              setProfile(data);
+            }
+            setLoading(false);
+          });
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, name: string, role: string) => {
+    console.log('Signing up user:', email, role);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -71,18 +104,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       },
     });
+    if (error) {
+      console.error('Sign up error:', error);
+    } else {
+      console.log('Sign up successful:', data);
+    }
     return { data, error };
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('Signing in user:', email);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (error) {
+      console.error('Sign in error:', error);
+    } else {
+      console.log('Sign in successful:', data);
+    }
     return { data, error };
   };
 
   const signOut = async () => {
+    console.log('Signing out user');
     await supabase.auth.signOut();
   };
 

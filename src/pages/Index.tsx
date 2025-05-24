@@ -18,17 +18,22 @@ const Index = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = React.useState<CurrentView>('dashboard');
 
+  console.log('Index component state:', { user, profile, loading, currentView });
+
   useEffect(() => {
     if (!loading && !user) {
+      console.log('No user found, redirecting to auth');
       navigate('/auth');
     }
   }, [user, loading, navigate]);
 
   const handleViewChange = (view: string) => {
+    console.log('Changing view to:', view);
     setCurrentView(view as CurrentView);
   };
 
   if (loading) {
+    console.log('Still loading...');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -40,64 +45,85 @@ const Index = () => {
   }
 
   if (!user || !profile) {
-    return null;
+    console.log('No user or profile found');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Benutzer wird geladen...</p>
+        </div>
+      </div>
+    );
   }
 
+  console.log('Rendering main app for user:', profile);
+
   const renderContent = () => {
-    switch (currentView) {
-      case 'dashboard':
-        switch (profile.role) {
-          case 'admin':
-            return <AdminDashboard />;
-          case 'teacher':
-            return <TeacherDashboard />;
-          case 'student':
-            return <StudentDashboard />;
-          default:
-            return <div>Rolle nicht erkannt</div>;
-        }
-      case 'chat':
-        if (profile.role === 'teacher' || profile.role === 'student') {
-          return <ChatInterface userRole={profile.role} />;
-        }
-        return <div>Chat nicht verfügbar für diese Rolle</div>;
-      case 'users':
-        if (profile.role === 'admin') {
-          return <UserManagement />;
-        }
-        return <div>Keine Berechtigung</div>;
-      case 'calendar':
-        if (profile.role === 'teacher' || profile.role === 'student') {
-          return <CalendarInterface userRole={profile.role} />;
-        }
-        return <div>Kalender nicht verfügbar für diese Rolle</div>;
-      case 'assignments':
-        if (profile.role === 'teacher' || profile.role === 'student') {
-          return <AssignmentInterface userRole={profile.role} />;
-        }
-        return <div>Aufgaben nicht verfügbar für diese Rolle</div>;
-      case 'students':
-        if (profile.role === 'teacher') {
-          return <div>Meine Schüler - Feature in Entwicklung</div>;
-        }
-        return <div>Keine Berechtigung</div>;
-      case 'teachers':
-        if (profile.role === 'student') {
-          return <div>Meine Lehrer - Feature in Entwicklung</div>;
-        }
-        return <div>Keine Berechtigung</div>;
-      case 'settings':
-        if (profile.role === 'admin') {
-          return <div>Einstellungen - Feature in Entwicklung</div>;
-        }
-        return <div>Keine Berechtigung</div>;
-      default:
-        return (
-          <div className="text-center py-12">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Feature in Entwicklung</h2>
-            <p className="text-gray-600">Diese Funktion wird bald verfügbar sein.</p>
-          </div>
-        );
+    console.log('Rendering content for view:', currentView, 'role:', profile.role);
+    
+    try {
+      switch (currentView) {
+        case 'dashboard':
+          switch (profile.role) {
+            case 'admin':
+              return <AdminDashboard />;
+            case 'teacher':
+              return <TeacherDashboard />;
+            case 'student':
+              return <StudentDashboard />;
+            default:
+              return <div>Rolle nicht erkannt: {profile.role}</div>;
+          }
+        case 'chat':
+          if (profile.role === 'teacher' || profile.role === 'student') {
+            return <ChatInterface userRole={profile.role} />;
+          }
+          return <div>Chat nicht verfügbar für diese Rolle</div>;
+        case 'users':
+          if (profile.role === 'admin') {
+            return <UserManagement />;
+          }
+          return <div>Keine Berechtigung</div>;
+        case 'calendar':
+          if (profile.role === 'teacher' || profile.role === 'student') {
+            return <CalendarInterface userRole={profile.role} />;
+          }
+          return <div>Kalender nicht verfügbar für diese Rolle</div>;
+        case 'assignments':
+          if (profile.role === 'teacher' || profile.role === 'student') {
+            return <AssignmentInterface userRole={profile.role} />;
+          }
+          return <div>Aufgaben nicht verfügbar für diese Rolle</div>;
+        case 'students':
+          if (profile.role === 'teacher') {
+            return <div>Meine Schüler - Feature in Entwicklung</div>;
+          }
+          return <div>Keine Berechtigung</div>;
+        case 'teachers':
+          if (profile.role === 'student') {
+            return <div>Meine Lehrer - Feature in Entwicklung</div>;
+          }
+          return <div>Keine Berechtigung</div>;
+        case 'settings':
+          if (profile.role === 'admin') {
+            return <div>Einstellungen - Feature in Entwicklung</div>;
+          }
+          return <div>Keine Berechtigung</div>;
+        default:
+          return (
+            <div className="text-center py-12">
+              <h2 className="text-xl font-semibold text-gray-900 mb-4">Feature in Entwicklung</h2>
+              <p className="text-gray-600">Diese Funktion wird bald verfügbar sein.</p>
+            </div>
+          );
+      }
+    } catch (error) {
+      console.error('Error rendering content:', error);
+      return (
+        <div className="text-center py-12">
+          <h2 className="text-xl font-semibold text-red-600 mb-4">Fehler beim Laden</h2>
+          <p className="text-gray-600">Es gab einen Fehler beim Laden des Inhalts.</p>
+        </div>
+      );
     }
   };
 
