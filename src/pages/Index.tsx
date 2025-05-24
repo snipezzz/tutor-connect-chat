@@ -18,7 +18,7 @@ const Index = () => {
   const navigate = useNavigate();
   const [currentView, setCurrentView] = React.useState<CurrentView>('dashboard');
 
-  console.log('Index component state:', { user, profile, loading, currentView });
+  console.log('Index component state:', { user: !!user, profile, loading, currentView });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -44,12 +44,25 @@ const Index = () => {
     );
   }
 
-  if (!user || !profile) {
-    console.log('No user or profile found');
+  if (!user) {
+    console.log('No user found, should redirect');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600">Benutzer wird geladen...</p>
+          <p className="text-gray-600">Keine Berechtigung. Weiterleitung...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!profile) {
+    console.log('User exists but no profile found');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Profil wird geladen...</p>
+          <p className="text-xs text-gray-400 mt-2">Benutzer ID: {user.id}</p>
         </div>
       </div>
     );
@@ -122,6 +135,7 @@ const Index = () => {
         <div className="text-center py-12">
           <h2 className="text-xl font-semibold text-red-600 mb-4">Fehler beim Laden</h2>
           <p className="text-gray-600">Es gab einen Fehler beim Laden des Inhalts.</p>
+          <p className="text-xs text-gray-400 mt-2">Fehler: {String(error)}</p>
         </div>
       );
     }

@@ -32,25 +32,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (session?.user) {
           console.log('User found, fetching profile...');
-          // Verwende setTimeout, um Deadlocks zu vermeiden
+          // Timeout verwenden, um Deadlocks zu vermeiden
           setTimeout(async () => {
             try {
+              // Versuche zuerst das Profil zu laden
               const { data: profileData, error } = await supabase
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
               
               if (error) {
                 console.error('Error fetching profile:', error);
-              } else {
+                
+                // Falls kein Profil existiert, erstelle eines
+                if (error.code === 'PGRST116') {
+                  console.log('No profile found, creating one...');
+                  const userData = session.user.user_metadata;
+                  const { data: newProfile, error: insertError } = await supabase
+                    .from('profiles')
+                    .insert({
+                      id: session.user.id,
+                      name: userData.name || session.user.email?.split('@')[0] || 'Unbekannt',
+                      email: session.user.email || '',
+                      role: userData.role || 'student'
+                    })
+                    .select()
+                    .single();
+                  
+                  if (insertError) {
+                    console.error('Error creating profile:', insertError);
+                  } else {
+                    console.log('Profile created:', newProfile);
+                    setProfile(newProfile);
+                  }
+                }
+              } else if (profileData) {
                 console.log('Profile loaded:', profileData);
                 setProfile(profileData);
               }
             } catch (err) {
               console.error('Error in profile fetch:', err);
             }
-          }, 0);
+          }, 100);
         } else {
           console.log('No user, clearing profile');
           setProfile(null);
@@ -71,13 +95,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single()
+          .maybeSingle()
           .then(({ data, error }) => {
-            if (error) {
+            if (error && error.code !== 'PGRST116') {
               console.error('Error fetching initial profile:', error);
-            } else {
+            } else if (data) {
               console.log('Initial profile loaded:', data);
               setProfile(data);
+            } else {
+              console.log('No initial profile found');
             }
             setLoading(false);
           });
