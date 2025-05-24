@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,18 +30,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: userData.role || 'student'
     };
 
-    const { data: newProfile, error: insertError } = await supabase
-      .from('profiles')
-      .insert(profileData)
-      .select()
-      .single();
-    
-    if (insertError) {
-      console.error('Error creating profile:', insertError);
-      return null;
-    } else {
+    try {
+      const { data: newProfile, error: insertError } = await supabase
+        .from('profiles')
+        .insert(profileData)
+        .select()
+        .single();
+      
+      if (insertError) {
+        console.error('Error creating profile:', insertError);
+        return null;
+      }
+      
       console.log('Profile created successfully:', newProfile);
       return newProfile;
+    } catch (err) {
+      console.error('Error in createProfile:', err);
+      return null;
     }
   };
 
@@ -79,10 +83,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
+    let mounted = true;
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
+        
+        if (!mounted) return;
+        
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -92,17 +100,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session.user.id, 
             session.user.user_metadata
           );
-          setProfile(userProfile);
+          if (mounted) {
+            setProfile(userProfile);
+            setLoading(false);
+          }
         } else {
-          console.log('No user, clearing profile');
-          setProfile(null);
+          if (mounted) {
+            console.log('No user, clearing profile');
+            setProfile(null);
+            setLoading(false);
+          }
         }
-        setLoading(false);
       }
     );
 
     // Prüfe initial Session
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return;
+      
       console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
@@ -113,13 +128,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           session.user.id, 
           session.user.user_metadata
         );
-        setProfile(userProfile);
+        if (mounted) {
+          setProfile(userProfile);
+          setLoading(false);
+        }
+      } else {
+        if (mounted) {
+          setLoading(false);
+        }
       }
-      setLoading(false);
     });
 
     return () => {
       console.log('Cleaning up auth subscription');
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

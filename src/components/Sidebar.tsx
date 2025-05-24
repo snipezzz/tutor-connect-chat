@@ -1,7 +1,14 @@
-
 import React from 'react';
-import { Users, MessageCircle, Calendar, BookOpen, Settings, User, Home } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { 
+  LayoutDashboard, 
+  MessageSquare, 
+  Calendar, 
+  FileText, 
+  Users, 
+  Settings,
+  X
+} from 'lucide-react';
+import { Button } from './ui/button';
 
 interface SidebarProps {
   userRole: 'admin' | 'teacher' | 'student';
@@ -10,61 +17,58 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ userRole, currentView, onViewChange }) => {
-  const getMenuItems = () => {
-    const commonItems = [
-      { icon: Home, label: 'Dashboard', view: 'dashboard' },
-      { icon: MessageCircle, label: 'Chat', view: 'chat' },
+  const getNavigationItems = () => {
+    const items = [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     ];
 
-    switch (userRole) {
-      case 'admin':
-        return [
-          ...commonItems,
-          { icon: Users, label: 'Benutzerverwaltung', view: 'users' },
-          { icon: Settings, label: 'Einstellungen', view: 'settings' },
-        ];
-      case 'teacher':
-        return [
-          ...commonItems,
-          { icon: User, label: 'Meine Schüler', view: 'students' },
-          { icon: Calendar, label: 'Termine', view: 'calendar' },
-          { icon: BookOpen, label: 'Aufgaben', view: 'assignments' },
-        ];
-      case 'student':
-        return [
-          ...commonItems,
-          { icon: User, label: 'Meine Lehrer', view: 'teachers' },
-          { icon: Calendar, label: 'Termine buchen', view: 'calendar' },
-          { icon: BookOpen, label: 'Aufgaben', view: 'assignments' },
-        ];
-      default:
-        return commonItems;
+    if (userRole === 'teacher' || userRole === 'student') {
+      items.push(
+        { id: 'chat', label: 'Chat', icon: MessageSquare },
+        { id: 'calendar', label: 'Kalender', icon: Calendar },
+        { id: 'assignments', label: 'Aufgaben', icon: FileText }
+      );
     }
+
+    if (userRole === 'teacher') {
+      items.push({ id: 'students', label: 'Meine Schüler', icon: Users });
+    }
+
+    if (userRole === 'student') {
+      items.push({ id: 'teachers', label: 'Meine Lehrer', icon: Users });
+    }
+
+    if (userRole === 'admin') {
+      items.push(
+        { id: 'users', label: 'Benutzer', icon: Users },
+        { id: 'settings', label: 'Einstellungen', icon: Settings }
+      );
+    }
+
+    return items;
   };
 
-  const menuItems = getMenuItems();
-
   return (
-    <div className="w-64 bg-white shadow-lg border-r border-gray-200">
-      <div className="p-6 border-b border-gray-200">
-        <h1 className="text-xl font-bold text-blue-600">Online Nachhilfe</h1>
+    <div className="h-full flex flex-col bg-white border-r border-gray-200">
+      <div className="p-4">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Navigation</h2>
+        <nav className="space-y-1">
+          {getNavigationItems().map((item) => {
+            const Icon = item.icon;
+            return (
+              <Button
+                key={item.id}
+                variant={currentView === item.id ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => onViewChange(item.id)}
+              >
+                <Icon className="h-5 w-5 mr-2" />
+                <span className="text-sm">{item.label}</span>
+              </Button>
+            );
+          })}
+        </nav>
       </div>
-      <nav className="mt-6">
-        {menuItems.map((item) => (
-          <button
-            key={item.view}
-            onClick={() => onViewChange(item.view)}
-            className={cn(
-              "w-full flex items-center px-6 py-3 text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors",
-              "border-l-4 border-transparent hover:border-blue-500",
-              currentView === item.view && "bg-blue-50 text-blue-600 border-l-blue-500"
-            )}
-          >
-            <item.icon className="h-5 w-5 mr-3" />
-            <span className="font-medium">{item.label}</span>
-          </button>
-        ))}
-      </nav>
     </div>
   );
 };

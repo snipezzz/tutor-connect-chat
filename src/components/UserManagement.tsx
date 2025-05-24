@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { UserPlus, Users, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,6 +33,17 @@ export const UserManagement: React.FC = () => {
     password: '',
     role: 'student'
   });
+  const [showEditUser, setShowEditUser] = useState(false);
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editUserData, setEditUserData] = useState<{
+    name: string;
+    email: string;
+    role: 'student' | 'teacher' | 'admin';
+  }>({
+    name: '',
+    email: '',
+    role: 'student' as 'student' | 'teacher' | 'admin'
+  });
   
   const { signUp } = useAuth();
   const { toast } = useToast();
@@ -62,8 +72,8 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     
     const { error } = await signUp(
-      newUser.email,
-      newUser.password,
+      newUser.email.trim(),
+      newUser.password.trim(),
       newUser.name,
       newUser.role
     );
@@ -81,6 +91,76 @@ export const UserManagement: React.FC = () => {
     setShowCreateUser(false);
     setNewUser({ name: '', email: '', password: '', role: 'student' });
     setTimeout(() => loadUsers(), 1000);
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!confirm('Sind Sie sicher, dass Sie diesen Benutzer löschen möchten?')) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('id', userId);
+
+    if (error) {
+      toast({
+        title: "Fehler",
+        description: "Benutzer konnte nicht gelöscht werden.",
+        variant: "destructive",
+      });
+      console.error('Error deleting user:', error);
+      return;
+    }
+
+    toast({ title: "Benutzer erfolgreich gelöscht!" });
+    loadUsers(); // Reload users after deletion
+  };
+
+  const handleEditUser = (user: Profile) => {
+    setEditingUser(user);
+    setEditUserData({ name: user.name, email: user.email, role: user.role as 'student' | 'teacher' | 'admin' });
+    setShowEditUser(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    const allowedRoles = ['student', 'teacher', 'admin'];
+    if (!allowedRoles.includes(editUserData.role)) {
+       console.error('Invalid role selected:', editUserData.role);
+       toast({
+         title: "Fehler",
+         description: "Ungültige Rolle ausgewählt.",
+         variant: "destructive",
+       });
+       return;
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+         name: editUserData.name,
+         email: editUserData.email,
+         role: editUserData.role
+      })
+      .eq('id', editingUser.id);
+
+    if (error) {
+      toast({
+        title: "Fehler",
+        description: "Benutzer konnte nicht aktualisiert werden.",
+        variant: "destructive",
+      });
+      console.error('Error updating user:', error);
+      return;
+    }
+
+    toast({ title: "Benutzer erfolgreich aktualisiert!" });
+    setShowEditUser(false);
+    setEditingUser(null);
+    loadUsers(); // Reload users after update
   };
 
   const handleAssignStudents = async () => {
@@ -300,10 +380,10 @@ export const UserManagement: React.FC = () => {
                     {getRoleLabel(user.role)}
                   </Badge>
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => handleEditUser(user)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeleteUser(user.id)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -313,6 +393,107 @@ export const UserManagement: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={showEditUser} onOpenChange={setShowEditUser}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Benutzer bearbeiten</DialogTitle>
+          </DialogHeader>
+          {editingUser && (
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editUserData.name}
+                  onChange={(e) => setEditUserData({...editUserData, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">E-Mail</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editUserData.email}
+                  onChange={(e) => setEditUserData({...editUserData, email: e.target.value})}
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-role">Rolle</Label>
+                <Select value={editUserData.role} onValueChange={(value) => setEditUserData({...editUserData, role: value as 'student' | 'teacher' | 'admin'})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="student">Schüler</SelectItem>
+                    <SelectItem value="teacher">Lehrer</SelectItem>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="submit" className="w-full">Speichern</Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Assign Students Dialog */}
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            Schüler zu Lehrer zuweisen
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schüler zu Lehrer zuweisen</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Lehrer auswählen</Label>
+              <Select value={selectedTeacher} onValueChange={setSelectedTeacher}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Lehrer wählen..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {teachers.map((teacher) => (
+                    <SelectItem key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Schüler auswählen</Label>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {students.map((student) => (
+                  <label key={student.id} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedStudents.includes(student.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedStudents([...selectedStudents, student.id]);
+                        } else {
+                          setSelectedStudents(selectedStudents.filter(id => id !== student.id));
+                        }
+                      }}
+                    />
+                    <span>{student.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <Button onClick={handleAssignStudents} className="w-full">
+              Zuweisen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

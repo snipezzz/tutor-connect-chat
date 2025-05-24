@@ -1,23 +1,89 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, MessageCircle, Calendar, BookOpen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/integrations/supabase/client';
+import { format, isToday } from 'date-fns';
+import { de } from 'date-fns/locale';
 
 interface Student {
   id: string;
   name: string;
   email: string;
-  lastActive: string;
-  unreadMessages: number;
+  lastActive?: string; // optional, da wir es hier nicht direkt verwenden
+  unreadMessages?: number; // optional
+}
+
+interface Appointment {
+  id: string;
+  title: string;
+  start_time: string;
+  end_time: string;
+  student: {
+    name: string;
+  };
 }
 
 export const TeacherDashboard: React.FC = () => {
-  const [students] = useState<Student[]>([
-    { id: '1', name: 'Nico Schmidt', email: 'nico@student.de', lastActive: '2024-05-23 14:30', unreadMessages: 2 },
-    { id: '2', name: 'Fabian Weber', email: 'fabian@student.de', lastActive: '2024-05-23 12:15', unreadMessages: 0 },
-  ]);
+  const { profile } = useAuth();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loadingStudents, setLoadingStudents] = useState(true);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loadingAppointments, setLoadingAppointments] = useState(true);
+
+  useEffect(() => {
+    if (profile?.id) {
+      const loadStudents = async () => {
+        setLoadingStudents(true);
+        const { data, error } = await supabase
+          .from('teacher_student_assignments')
+          .select(`
+            student_id,
+            student:profiles!teacher_student_assignments_student_id_fkey(id, name, email)
+          `)
+          .eq('teacher_id', profile.id);
+
+        if (error) {
+          console.error('Error loading students:', error);
+          setStudents([]);
+        } else {
+          const studentList = data?.map(assignment => assignment.student) || [];
+          setStudents(studentList);
+        }
+        setLoadingStudents(false);
+      };
+      loadStudents();
+    }
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (profile?.id) {
+      const loadAppointments = async () => {
+        setLoadingAppointments(true);
+        const { data, error } = await supabase
+          .from('appointments')
+          .select(`
+            *,\
+            student:profiles!appointments_student_id_fkey(name)\
+          `)
+          .eq('teacher_id', profile.id) // Filter nach Terminen, die diesem Lehrer zugeordnet sind (auch wenn teacher_id null ist, könnte man hier anders filtern, je nach finaler Logik)
+          .order('start_time');
+
+        if (error) {
+          console.error('Error loading appointments:', error);
+          setAppointments([]);
+        } else {
+          // Filtern nach heutigen Terminen
+          const todayAppointments = data?.filter(apt => isToday(new Date(apt.start_time))) || [];
+          setAppointments(todayAppointments as Appointment[]);
+        }
+        setLoadingAppointments(false);
+      };
+      loadAppointments();
+    }
+  }, [profile?.id]);
 
   return (
     <div className="space-y-6">
@@ -33,7 +99,7 @@ export const TeacherDashboard: React.FC = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{students.length}</div>
+            <div className="text-2xl font-bold">{loadingStudents ? '-' : students.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -42,7 +108,7 @@ export const TeacherDashboard: React.FC = () => {
             <MessageCircle className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{students.reduce((acc, s) => acc + s.unreadMessages, 0)}</div>
+            <div className="text-2xl font-bold">0</div>
           </CardContent>
         </Card>
         <Card>
@@ -51,7 +117,7 @@ export const TeacherDashboard: React.FC = () => {
             <Calendar className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3</div>
+            <div className="text-2xl font-bold">{loadingAppointments ? '-' : appointments.length}</div>
           </CardContent>
         </Card>
       </div>
@@ -64,33 +130,33 @@ export const TeacherDashboard: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {students.map((student) => (
-              <div key={student.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <div className="flex items-center space-x-4">
-                  <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <span className="text-green-600 font-semibold text-lg">{student.name.charAt(0)}</span>
+          {loadingStudents ? (
+            <div className="text-center text-gray-400 py-8">Schüler werden geladen...</div>
+          ) : students.length === 0 ? (
+            <div className="text-center text-gray-400 py-8">Noch keine Schüler zugewiesen.</div>
+          ) : (
+            <div className="space-y-4">
+              {students.map((student) => (
+                <div key={student.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-12 w-12 bg-green-100 rounded-full flex items-center justify-center">
+                      <span className="text-green-600 font-semibold text-lg">{student.name.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">{student.name}</h3>
+                      <p className="text-sm text-gray-500">{student.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{student.name}</h3>
-                    <p className="text-sm text-gray-500">{student.email}</p>
-                    <p className="text-xs text-gray-400">Zuletzt aktiv: {student.lastActive}</p>
+                  <div className="flex items-center space-x-3">
+                    <Button variant="outline" size="sm" className="flex items-center">
+                      <MessageCircle className="h-4 w-4 mr-1" />
+                      Chat
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  {student.unreadMessages > 0 && (
-                    <Badge className="bg-red-100 text-red-800">
-                      {student.unreadMessages} neue Nachrichten
-                    </Badge>
-                  )}
-                  <Button variant="outline" size="sm" className="flex items-center">
-                    <MessageCircle className="h-4 w-4 mr-1" />
-                    Chat
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -99,26 +165,31 @@ export const TeacherDashboard: React.FC = () => {
           <CardHeader>
             <CardTitle className="flex items-center">
               <Calendar className="h-5 w-5 mr-2" />
-              Kommende Termine
+              Heutige Termine
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
-                <div>
-                  <p className="font-medium">Mathematik - Nico Schmidt</p>
-                  <p className="text-sm text-gray-600">Heute, 15:00 - 16:00</p>
-                </div>
-                <Badge className="bg-blue-100 text-blue-800">In 30 Min</Badge>
+            {loadingAppointments ? (
+              <div className="text-center text-gray-400 py-8">Termine werden geladen...</div>
+            ) : appointments.length === 0 ? (
+              <div className="text-center text-gray-400 py-8">Keine Termine für heute vorhanden.</div>
+            ) : (
+              <div className="space-y-3">
+                {appointments.map((appointment) => (
+                  <div key={appointment.id} className="p-3 border border-gray-200 rounded-lg">
+                    <div className="flex justify-between items-center mb-1">
+                      <h4 className="font-medium">{appointment.student.name}</h4>
+                      <span className="text-sm text-gray-500">
+                        {format(new Date(appointment.start_time), 'HH:mm', { locale: de })} - {format(new Date(appointment.end_time), 'HH:mm', { locale: de })}
+                      </span>
+                    </div>
+                    {appointment.title !== 'Anmeldung zur Nachhilfe' && (
+                      <p className="text-sm text-gray-600">{appointment.title}</p>
+                    )}
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium">Physik - Fabian Weber</p>
-                  <p className="text-sm text-gray-600">Heute, 17:00 - 18:00</p>
-                </div>
-                <Badge className="bg-gray-100 text-gray-800">In 2h 30min</Badge>
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -130,18 +201,7 @@ export const TeacherDashboard: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="p-3 border border-gray-200 rounded-lg">
-                <p className="font-medium">Quadratische Gleichungen</p>
-                <p className="text-sm text-gray-600">Zugewiesen an: Nico Schmidt</p>
-                <p className="text-xs text-gray-400">Erstellt: 22.05.2024</p>
-              </div>
-              <div className="p-3 border border-gray-200 rounded-lg">
-                <p className="font-medium">Mechanik Grundlagen</p>
-                <p className="text-sm text-gray-600">Zugewiesen an: Fabian Weber</p>
-                <p className="text-xs text-gray-400">Erstellt: 21.05.2024</p>
-              </div>
-            </div>
+            <div className="text-center text-gray-400 py-8">Keine Aufgaben vorhanden.</div>
           </CardContent>
         </Card>
       </div>

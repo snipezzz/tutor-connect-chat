@@ -1,25 +1,36 @@
-
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserPlus, Users, Trash2, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { supabase } from '@/integrations/supabase/client';
 
 interface User {
   id: string;
   name: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';
-  createdAt: string;
+  created_at: string;
 }
 
 export const AdminDashboard: React.FC = () => {
-  const [users] = useState<User[]>([
-    { id: '1', name: 'Admin User', email: 'admin@nachhilfe.de', role: 'admin', createdAt: '2024-01-15' },
-    { id: '2', name: 'Arif Mustafa', email: 'arif@nachhilfe.de', role: 'teacher', createdAt: '2024-01-16' },
-    { id: '3', name: 'Nico Schmidt', email: 'nico@student.de', role: 'student', createdAt: '2024-01-17' },
-    { id: '4', name: 'Fabian Weber', email: 'fabian@student.de', role: 'student', createdAt: '2024-01-18' },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (!error && data) {
+        setUsers(data as User[]);
+      }
+      setLoading(false);
+    };
+    loadUsers();
+  }, []);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -39,6 +50,9 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const teacherCount = users.filter(u => u.role === 'teacher').length;
+  const studentCount = users.filter(u => u.role === 'student').length;
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -56,7 +70,7 @@ export const AdminDashboard: React.FC = () => {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.length}</div>
+            <div className="text-2xl font-bold">{loading ? '-' : users.length}</div>
           </CardContent>
         </Card>
         <Card>
@@ -65,7 +79,7 @@ export const AdminDashboard: React.FC = () => {
             <Users className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.filter(u => u.role === 'teacher').length}</div>
+            <div className="text-2xl font-bold">{loading ? '-' : teacherCount}</div>
           </CardContent>
         </Card>
         <Card>
@@ -74,7 +88,7 @@ export const AdminDashboard: React.FC = () => {
             <Users className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{users.filter(u => u.role === 'student').length}</div>
+            <div className="text-2xl font-bold">{loading ? '-' : studentCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -84,34 +98,40 @@ export const AdminDashboard: React.FC = () => {
           <CardTitle>Alle Benutzer</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {users.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center space-x-4">
-                  <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold">{user.name.charAt(0)}</span>
+          {loading ? (
+            <div className="text-center text-gray-400 py-8">Lädt...</div>
+          ) : users.length === 0 ? (
+            <div className="text-center text-gray-400 py-8">Keine Benutzer vorhanden.</div>
+          ) : (
+            <div className="space-y-4">
+              {users.map((user) => (
+                <div key={user.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+                  <div className="flex items-center space-x-4">
+                    <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-semibold">{user.name.charAt(0)}</span>
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">{user.name}</h3>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-gray-900">{user.name}</h3>
-                    <p className="text-sm text-gray-500">{user.email}</p>
+                  <div className="flex items-center space-x-3">
+                    <Badge className={getRoleColor(user.role)}>
+                      {getRoleLabel(user.role)}
+                    </Badge>
+                    <div className="flex space-x-2">
+                      <Button variant="outline" size="sm">
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-3">
-                  <Badge className={getRoleColor(user.role)}>
-                    {getRoleLabel(user.role)}
-                  </Badge>
-                  <div className="flex space-x-2">
-                    <Button variant="outline" size="sm">
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
