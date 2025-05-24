@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
@@ -121,6 +120,7 @@ export const CalendarInterface: React.FC<CalendarInterfaceProps> = ({ userRole }
         description: newAppointment.description,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
+        status: 'scheduled',
       });
 
     if (error) {

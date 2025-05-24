@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { FileUp, Download, Clock, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -145,6 +144,7 @@ export const AssignmentInterface: React.FC<AssignmentInterfaceProps> = ({ userRo
         description: newAssignment.description,
         due_date: newAssignment.due_date ? new Date(newAssignment.due_date).toISOString() : null,
         file_url: fileUrl,
+        status: 'pending',
       });
 
     if (error) {
