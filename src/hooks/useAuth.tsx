@@ -22,7 +22,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const createProfile = async (userId: string, userData: any) => {
     console.log('Creating profile for user:', userId, userData);
-    
+    console.log('Attempting to insert new profile...');
+
     const profileData = {
       id: userId,
       name: userData.name || userData.full_name || session?.user?.email?.split('@')[0] || 'Unbekannt',
@@ -36,9 +37,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .insert(profileData)
         .select()
         .single();
-      
+
+      console.log('Insert profile attempt complete.');
+
       if (insertError) {
         console.error('Error creating profile:', insertError);
+        console.error('Insert error details:', JSON.stringify(insertError, null, 2));
         return null;
       }
       
@@ -46,13 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return newProfile;
     } catch (err) {
       console.error('Error in createProfile:', err);
+      console.error('createProfile catch error details:', JSON.stringify(err, null, 2));
       return null;
     }
   };
 
   const fetchOrCreateProfile = async (userId: string, userData: any = {}) => {
     console.log('Fetching or creating profile for user:', userId);
-    
+    console.log('Attempting to fetch profile...');
+
     try {
       // Versuche zuerst das Profil zu laden
       const { data: existingProfile, error: fetchError } = await supabase
@@ -61,8 +67,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
       
+      console.log('Fetch profile attempt complete.');
+
       if (fetchError) {
         console.error('Error fetching profile:', fetchError);
+        console.error('Fetch error details:', JSON.stringify(fetchError, null, 2));
         return null;
       }
       
@@ -77,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
     } catch (err) {
       console.error('Error in fetchOrCreateProfile:', err);
+      console.error('fetchOrCreateProfile catch error details:', JSON.stringify(err, null, 2));
       return null;
     }
   };
