@@ -2,8 +2,16 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://igxqxlkogezuivitjdsu.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlneHF4bGtvZ2V6dWl2aXRqZHN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgwMzA3NjMsImV4cCI6MjA2MzYwNjc2M30.vwgPtbohngETCW6Xx8sl0ON1VucV97hja3UILU16X6o";
+// Use environment variables for Supabase URL and Anon Key
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+// Ensure environment variables are loaded (optional, but good practice for clarity)
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error('Supabase URL or Anon Key is not set in environment variables.');
+  // Depending on your app's needs, you might want to throw an error or handle this differently
+  // For now, we'll proceed, but expect potential issues if they are truly missing.
+}
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
