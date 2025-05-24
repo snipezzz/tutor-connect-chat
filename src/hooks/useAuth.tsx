@@ -138,6 +138,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (session?.user) {
         console.log('Initial user found, fetching/creating profile...');
+        await new Promise(resolve => setTimeout(resolve, 200));
+
         const userProfile = await fetchOrCreateProfile(
           session.user.id, 
           session.user.user_metadata
