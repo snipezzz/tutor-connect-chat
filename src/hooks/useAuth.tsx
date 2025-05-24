@@ -21,6 +21,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const createProfile = async (userId: string, userData: any) => {
+    console.log('Creating profile for user:', userId, userData);
+    
+    const profileData = {
+      id: userId,
+      name: userData.name || userData.full_name || session?.user?.email?.split('@')[0] || 'Unbekannt',
+      email: session?.user?.email || '',
+      role: userData.role || 'student'
+    };
+
+    const { data: newProfile, error: insertError } = await supabase
+      .from('profiles')
+      .insert(profileData)
+      .select()
+      .single();
+    
+    if (insertError) {
+      console.error('Error creating profile:', insertError);
+      return null;
+    } else {
+      console.log('Profile created successfully:', newProfile);
+      return newProfile;
+    }
+  };
+
+  const fetchOrCreateProfile = async (userId: string, userData: any = {}) => {
+    console.log('Fetching or creating profile for user:', userId);
+    
+    try {
+      // Versuche zuerst das Profil zu laden
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error('Error fetching profile:', fetchError);
+        return null;
+      }
+      
+      if (existingProfile) {
+        console.log('Existing profile found:', existingProfile);
+        return existingProfile;
+      }
+      
+      // Falls kein Profil existiert, erstelle eines
+      console.log('No profile found, creating new one...');
+      return await createProfile(userId, userData);
+      
+    } catch (err) {
+      console.error('Error in fetchOrCreateProfile:', err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     console.log('Setting up auth state listener...');
     
@@ -31,50 +87,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log('User found, fetching profile...');
-          // Timeout verwenden, um Deadlocks zu vermeiden
-          setTimeout(async () => {
-            try {
-              // Versuche zuerst das Profil zu laden
-              const { data: profileData, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .maybeSingle();
-              
-              if (error) {
-                console.error('Error fetching profile:', error);
-                
-                // Falls kein Profil existiert, erstelle eines
-                if (error.code === 'PGRST116') {
-                  console.log('No profile found, creating one...');
-                  const userData = session.user.user_metadata;
-                  const { data: newProfile, error: insertError } = await supabase
-                    .from('profiles')
-                    .insert({
-                      id: session.user.id,
-                      name: userData.name || session.user.email?.split('@')[0] || 'Unbekannt',
-                      email: session.user.email || '',
-                      role: userData.role || 'student'
-                    })
-                    .select()
-                    .single();
-                  
-                  if (insertError) {
-                    console.error('Error creating profile:', insertError);
-                  } else {
-                    console.log('Profile created:', newProfile);
-                    setProfile(newProfile);
-                  }
-                }
-              } else if (profileData) {
-                console.log('Profile loaded:', profileData);
-                setProfile(profileData);
-              }
-            } catch (err) {
-              console.error('Error in profile fetch:', err);
-            }
-          }, 100);
+          console.log('User found, fetching/creating profile...');
+          const userProfile = await fetchOrCreateProfile(
+            session.user.id, 
+            session.user.user_metadata
+          );
+          setProfile(userProfile);
         } else {
           console.log('No user, clearing profile');
           setProfile(null);
@@ -84,32 +102,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Prüfe initial Session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        console.log('Initial user found, fetching profile...');
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .maybeSingle()
-          .then(({ data, error }) => {
-            if (error && error.code !== 'PGRST116') {
-              console.error('Error fetching initial profile:', error);
-            } else if (data) {
-              console.log('Initial profile loaded:', data);
-              setProfile(data);
-            } else {
-              console.log('No initial profile found');
-            }
-            setLoading(false);
-          });
-      } else {
-        setLoading(false);
+        console.log('Initial user found, fetching/creating profile...');
+        const userProfile = await fetchOrCreateProfile(
+          session.user.id, 
+          session.user.user_metadata
+        );
+        setProfile(userProfile);
       }
+      setLoading(false);
     });
 
     return () => {
