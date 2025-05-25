@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Session } from '@supabase/supabase-js';
 
@@ -36,6 +35,7 @@ export const fetchProfile = async (userId: string) => {
   console.log('Fetching profile for user:', userId);
   
   try {
+    console.log('Executing Supabase query to fetch profile...');
     const { data: existingProfile, error: fetchError } = await supabase
       .from('profiles')
       .select('*')
@@ -44,18 +44,22 @@ export const fetchProfile = async (userId: string) => {
 
     if (fetchError) {
       console.error('Error fetching profile:', fetchError);
+      console.error('Details of fetch error:', JSON.stringify(fetchError, null, 2));
       return null;
     }
     
     if (existingProfile) {
       console.log('Existing profile found:', existingProfile);
+      console.log('Details of fetched profile:', JSON.stringify(existingProfile, null, 2));
       return existingProfile;
     }
     
+    console.log('No existing profile found for user:', userId);
     return null;
     
   } catch (err) {
     console.error('Error in fetchProfile:', err);
+    console.error('Details of catch error in fetchProfile:', JSON.stringify(err, null, 2));
     return null;
   }
 };
