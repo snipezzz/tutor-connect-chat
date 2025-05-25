@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -93,6 +92,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Error in initial auth check:', error);
+        if (mounted) {
+          setLoading(false);
+        }
+      } finally {
+        // Ensure loading is always false after the initial check
         if (mounted) {
           setLoading(false);
         }
