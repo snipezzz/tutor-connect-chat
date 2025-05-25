@@ -42,6 +42,10 @@ export const fetchProfile = async (userId: string) => {
       .eq('id', userId)
       .maybeSingle();
 
+    console.log('Supabase query executed.');
+    console.log('Supabase query result - data:', existingProfile);
+    console.error('Supabase query result - error:', fetchError);
+
     if (fetchError) {
       console.error('Error fetching profile:', fetchError);
       console.error('Details of fetch error:', JSON.stringify(fetchError, null, 2));
