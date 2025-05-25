@@ -73,12 +73,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (session?.user) {
           // Bei initialem Load immer nur das existierende Profil laden
-          const userProfile = await fetchProfile(session.user.id);
+          let userProfile = await fetchProfile(session.user.id);
+
+          // Wenn kein Profil gefunden wurde, versuche eins zu erstellen (kann bei bestehenden Nutzern ohne Profil passieren)
+          if (!userProfile && mounted) {
+            console.log('User exists but no profile found during initial check, attempting to create profile...');
+            userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
+          }
           
           if (mounted) {
             setSession(session);
             setUser(session.user);
-            setProfile(userProfile);
+            setProfile(userProfile); // Profile auf das gefundene oder neu erstellte Profil setzen
             // WICHTIG: Loading-State IMMER zurücksetzen, auch wenn kein Profil gefunden wurde
             setLoading(false);
           }
