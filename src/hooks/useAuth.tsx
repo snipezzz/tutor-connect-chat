@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -147,6 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setUser(session.user);
             setProfile(userProfile);
+            // WICHTIG: Loading-State IMMER zurücksetzen, auch wenn kein Profil gefunden wurde
             setLoading(false);
           }
         } else {
