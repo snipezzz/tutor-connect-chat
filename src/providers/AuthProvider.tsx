@@ -1,82 +1,16 @@
-import { useState, useEffect, createContext, useContext } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
-  profile: any | null;
-  loading: boolean;
-  signUp: (email: string, password: string, name: string, role: string) => Promise<any>;
-  signIn: (email: string, password: string) => Promise<any>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from '@/contexts/AuthContext';
+import { AuthContextType } from '@/types/auth';
+import { createProfile, fetchProfile } from '@/utils/profileUtils';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const createProfile = async (userId: string, userData: any) => {
-    console.log('Creating profile for user:', userId, userData);
-    
-    const profileData = {
-      id: userId,
-      name: userData.name || userData.full_name || session?.user?.email?.split('@')[0] || 'Unbekannt',
-      email: session?.user?.email || '',
-      role: userData.role || 'student'
-    };
-
-    try {
-      const { data: newProfile, error: insertError } = await supabase
-        .from('profiles')
-        .insert(profileData)
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('Error creating profile:', insertError);
-        return null;
-      }
-      
-      console.log('Profile created successfully:', newProfile);
-      return newProfile;
-    } catch (err) {
-      console.error('Error in createProfile:', err);
-      return null;
-    }
-  };
-
-  const fetchProfile = async (userId: string) => {
-    console.log('Fetching profile for user:', userId);
-    
-    try {
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error('Error fetching profile:', fetchError);
-        return null;
-      }
-      
-      if (existingProfile) {
-        console.log('Existing profile found:', existingProfile);
-        return existingProfile;
-      }
-      
-      return null;
-      
-    } catch (err) {
-      console.error('Error in fetchProfile:', err);
-      return null;
-    }
-  };
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
@@ -103,7 +37,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Falls kein Profil existiert, erstelle eins nur beim ersten Login
           if (!userProfile && event === 'SIGNED_IN' && mounted) {
             console.log('No profile found and user just signed in, creating profile...');
-            userProfile = await createProfile(session.user.id, session.user.user_metadata);
+            userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
           }
           
           if (mounted) {
@@ -213,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const value = {
+  const value: AuthContextType = {
     user,
     session,
     profile,
@@ -224,12 +158,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
 }
