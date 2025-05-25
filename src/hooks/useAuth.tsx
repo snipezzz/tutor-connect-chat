@@ -51,11 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const fetchOrCreateProfile = async (userId: string, userData: any = {}) => {
-    console.log('Fetching or creating profile for user:', userId);
+  const fetchProfile = async (userId: string) => {
+    console.log('Fetching profile for user:', userId);
     
     try {
-      // Versuche zuerst das Profil zu laden
       const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
         .select('*')
@@ -72,12 +71,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return existingProfile;
       }
       
-      // Falls kein Profil existiert, erstelle eines
-      console.log('No profile found, creating new one...');
-      return await createProfile(userId, userData);
+      return null;
       
     } catch (err) {
-      console.error('Error in fetchOrCreateProfile:', err);
+      console.error('Error in fetchProfile:', err);
       return null;
     }
   };
@@ -85,44 +82,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('Setting up auth state listener...');
     let mounted = true;
-    let isProcessing = false;
     
     const handleAuthChange = async (event: any, session: Session | null) => {
       console.log('Auth state changed:', event, session?.user?.id);
       
-      if (!mounted || isProcessing) {
-        console.log('Skipping auth change - not mounted or already processing');
+      if (!mounted) {
+        console.log('Component unmounted, skipping auth change');
         return;
       }
-      
-      isProcessing = true;
       
       try {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user) {
-          console.log('User found, fetching/creating profile...');
-          const userProfile = await fetchOrCreateProfile(
-            session.user.id, 
-            session.user.user_metadata
-          );
+        if (session?.user && mounted) {
+          console.log('User found, fetching profile...');
+          
+          // Versuche zuerst das existierende Profil zu laden
+          let userProfile = await fetchProfile(session.user.id);
+          
+          // Falls kein Profil existiert, erstelle eins nur beim ersten Login
+          if (!userProfile && event === 'SIGNED_IN' && mounted) {
+            console.log('No profile found and user just signed in, creating profile...');
+            userProfile = await createProfile(session.user.id, session.user.user_metadata);
+          }
           
           if (mounted) {
             setProfile(userProfile);
+            setLoading(false);
           }
         } else {
           console.log('No user, clearing profile');
           if (mounted) {
             setProfile(null);
+            setLoading(false);
           }
         }
       } catch (error) {
         console.error('Error in auth state change handler:', error);
-      } finally {
         if (mounted) {
           setLoading(false);
-          isProcessing = false;
         }
       }
     };
@@ -131,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Prüfe initial Session
     const initializeAuth = async () => {
-      if (!mounted || isProcessing) return;
+      if (!mounted) return;
       
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -139,7 +138,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!mounted) return;
         
         console.log('Initial session check:', session?.user?.id);
-        await handleAuthChange('INITIAL_SESSION', session);
+        
+        if (session?.user) {
+          // Bei initialem Load immer nur das existierende Profil laden
+          const userProfile = await fetchProfile(session.user.id);
+          
+          if (mounted) {
+            setSession(session);
+            setUser(session.user);
+            setProfile(userProfile);
+            setLoading(false);
+          }
+        } else {
+          if (mounted) {
+            setSession(null);
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
+        }
       } catch (error) {
         console.error('Error in initial auth check:', error);
         if (mounted) {
