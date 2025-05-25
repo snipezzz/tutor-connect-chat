@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,8 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const createProfile = async (userId: string, userData: any) => {
     console.log('Creating profile for user:', userId, userData);
-    console.log('Attempting to insert new profile...');
-
+    
     const profileData = {
       id: userId,
       name: userData.name || userData.full_name || session?.user?.email?.split('@')[0] || 'Unbekannt',
@@ -38,11 +38,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .select()
         .single();
 
-      console.log('Insert profile attempt complete.');
-
       if (insertError) {
         console.error('Error creating profile:', insertError);
-        console.error('Insert error details:', JSON.stringify(insertError, null, 2));
         return null;
       }
       
@@ -50,17 +47,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return newProfile;
     } catch (err) {
       console.error('Error in createProfile:', err);
-      console.error('createProfile catch error details:', JSON.stringify(err, null, 2));
       return null;
     }
   };
 
   const fetchOrCreateProfile = async (userId: string, userData: any = {}) => {
     console.log('Fetching or creating profile for user:', userId);
-    console.log('Attempting to fetch profile...');
-
-    console.log('Before supabase profiles select...');
-
+    
     try {
       // Versuche zuerst das Profil zu laden
       const { data: existingProfile, error: fetchError } = await supabase
@@ -69,13 +62,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq('id', userId)
         .maybeSingle();
 
-      console.log('After supabase profiles select.');
-
-      console.log('Fetch profile attempt complete.');
-
       if (fetchError) {
         console.error('Error fetching profile:', fetchError);
-        console.error('Fetch error details:', JSON.stringify(fetchError, null, 2));
         return null;
       }
       
@@ -90,7 +78,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
     } catch (err) {
       console.error('Error in fetchOrCreateProfile:', err);
-      console.error('fetchOrCreateProfile catch error details:', JSON.stringify(err, null, 2));
       return null;
     }
   };
@@ -98,13 +85,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     console.log('Setting up auth state listener...');
     let mounted = true;
+    let isProcessing = false;
     
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        
-        if (!mounted) return;
-        
+    const handleAuthChange = async (event: any, session: Session | null) => {
+      console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (!mounted || isProcessing) {
+        console.log('Skipping auth change - not mounted or already processing');
+        return;
+      }
+      
+      isProcessing = true;
+      
+      try {
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -114,46 +107,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             session.user.id, 
             session.user.user_metadata
           );
+          
           if (mounted) {
             setProfile(userProfile);
-            setLoading(false);
           }
         } else {
+          console.log('No user, clearing profile');
           if (mounted) {
-            console.log('No user, clearing profile');
             setProfile(null);
-            setLoading(false);
           }
         }
+      } catch (error) {
+        console.error('Error in auth state change handler:', error);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          isProcessing = false;
+        }
       }
-    );
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
 
     // Prüfe initial Session
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!mounted) return;
+    const initializeAuth = async () => {
+      if (!mounted || isProcessing) return;
       
-      console.log('Initial session check:', session?.user?.id);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        console.log('Initial user found, fetching/creating profile...');
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        const userProfile = await fetchOrCreateProfile(
-          session.user.id, 
-          session.user.user_metadata
-        );
-        if (mounted) {
-          setProfile(userProfile);
-          setLoading(false);
-        }
-      } else {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!mounted) return;
+        
+        console.log('Initial session check:', session?.user?.id);
+        await handleAuthChange('INITIAL_SESSION', session);
+      } catch (error) {
+        console.error('Error in initial auth check:', error);
         if (mounted) {
           setLoading(false);
         }
       }
-    });
+    };
+
+    initializeAuth();
 
     return () => {
       console.log('Cleaning up auth subscription');
