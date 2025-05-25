@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
@@ -9,6 +8,7 @@ import { ChatInterface } from '@/components/ChatInterface';
 import { UserManagement } from '@/components/UserManagement';
 import { CalendarInterface } from '@/components/CalendarInterface';
 import { AssignmentInterface } from '@/components/AssignmentInterface';
+import { SettingsInterface } from '@/components/SettingsInterface';
 import { useAuth } from '@/hooks/useAuth';
 
 type CurrentView = 'dashboard' | 'chat' | 'calendar' | 'assignments' | 'users' | 'students' | 'teachers' | 'settings';
@@ -128,10 +128,7 @@ const Index = () => {
           }
           return <div>Keine Berechtigung</div>;
         case 'settings':
-          if (profile.role === 'admin') {
-            return <div>Einstellungen - Feature in Entwicklung</div>;
-          }
-          return <div>Keine Berechtigung</div>;
+          return <SettingsInterface />;
         default:
           return (
             <div className="text-center py-12">

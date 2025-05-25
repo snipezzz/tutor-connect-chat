@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { 
   LayoutDashboard, 
@@ -40,10 +41,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole, currentView, onViewC
 
     if (userRole === 'admin') {
       items.push(
-        { id: 'users', label: 'Benutzer', icon: Users },
-        { id: 'settings', label: 'Einstellungen', icon: Settings }
+        { id: 'users', label: 'Benutzer', icon: Users }
       );
     }
+
+    // Einstellungen für alle Rollen
+    items.push({ id: 'settings', label: 'Einstellungen', icon: Settings });
 
     return items;
   };
