@@ -47,7 +47,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('No user, clearing profile');
           if (mounted) {
             setProfile(null);
+            setSession(null);
+            setUser(null);
             setLoading(false);
+            // Explizit zum Login weiterleiten, wenn kein User gefunden wird nach initialem Check
+            // Dies hilft, falls die Index Komponente nicht korrekt weiterleitet
+            // Die eigentliche Weiterleitung ist in Index.tsx, dies ist ein Fallback
+            // if (window.location.pathname !== '/auth') {
+            //   window.location.replace('/auth');
+            // }
           }
         }
       } catch (error) {
