@@ -27,36 +27,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         
-        if (session?.user && mounted) {
+        if (session?.user) {
           console.log('User found, fetching profile...');
           
-          // Versuche zuerst das existierende Profil zu laden
           let userProfile = await fetchProfile(session.user.id);
           
-          // Falls kein Profil existiert, erstelle eins nur beim ersten Login
-          if (!userProfile && event === 'SIGNED_IN' && mounted) {
+          // Erstelle Profil NUR bei SIGNED_IN-Event, wenn kein Profil existiert
+          if (!userProfile && event === 'SIGNED_IN') {
             console.log('No profile found and user just signed in, creating profile...');
             userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
           }
           
           if (mounted) {
             setProfile(userProfile);
-            setLoading(false);
           }
         } else {
           console.log('No user, clearing profile');
-          if (mounted) {
-            setProfile(null);
-            setSession(null);
-            setUser(null);
-            setLoading(false);
-            // Explizit zum Login weiterleiten, wenn kein User gefunden wird nach initialem Check
-            // Dies hilft, falls die Index Komponente nicht korrekt weiterleitet
-            // Die eigentliche Weiterleitung ist in Index.tsx, dies ist ein Fallback
-            // if (window.location.pathname !== '/auth') {
-            //   window.location.replace('/auth');
-            // }
-          }
+          setProfile(null);
+        }
+        
+        // Setze Loading immer auf false, nachdem die Verarbeitung abgeschlossen ist
+        if (mounted) {
+          setLoading(false);
         }
       } catch (error) {
         console.error('Error in auth state change handler:', error);
@@ -66,63 +58,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
+    // Setze den Auth-Listener und verarbeite die initiale Session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
-
-    // Prüfe initial Session
-    const initializeAuth = async () => {
-      if (!mounted) return;
-      
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!mounted) return;
-        
-        console.log('Initial session check:', session?.user?.id);
-        
-        if (session?.user) {
-          // Bei initialem Load immer nur das existierende Profil laden
-          let userProfile = await fetchProfile(session.user.id);
-
-          // Wenn kein Profil gefunden wurde, versuche eins zu erstellen (kann bei bestehenden Nutzern ohne Profil passieren)
-          if (!userProfile && mounted) {
-            console.log('User exists but no profile found during initial check, attempting to create profile...');
-            userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
-          }
-          
-          if (mounted) {
-            setSession(session);
-            setUser(session.user);
-            setProfile(userProfile); // Profile auf das gefundene oder neu erstellte Profil setzen
-            // WICHTIG: Loading-State IMMER zurücksetzen, auch wenn kein Profil gefunden wurde
-            setLoading(false);
-          }
-        } else {
-          if (mounted) {
-            setSession(null);
-            setUser(null);
-            setProfile(null);
-            setLoading(false);
-          }
-        }
-      } catch (error) {
-        console.error('Error in initial auth check:', error);
-        if (mounted) {
-          setLoading(false);
-        }
-      } finally {
-        // Ensure loading is always false after the initial check
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    initializeAuth();
 
     return () => {
       console.log('Cleaning up auth subscription');
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 
