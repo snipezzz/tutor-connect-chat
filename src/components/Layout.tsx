@@ -3,11 +3,12 @@ import { TopBar } from './TopBar';
 import { Sidebar } from './Sidebar';
 import { Menu } from 'lucide-react';
 import { Button } from './ui/button';
+import { UserProfile } from '@/contexts/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
   userRole: 'admin' | 'teacher' | 'student';
-  currentUser: any;
+  currentUser: UserProfile;
   currentView: string;
   onViewChange: (view: string) => void;
 }
@@ -20,6 +21,11 @@ export const Layout: React.FC<LayoutProps> = ({
   onViewChange 
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  if (!currentUser) {
+    console.error("Layout rendered without currentUser!");
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
