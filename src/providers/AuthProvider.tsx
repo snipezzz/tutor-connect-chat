@@ -16,7 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
     
     const handleAuthChange = async (event: any, session: Session | null) => {
-      console.log('Auth state changed:', event, session?.user?.id);
+      console.log('Auth state changed:', event, session?.user?.id ? `User ID: ${session.user.id}` : 'No user');
       
       if (!mounted) {
         console.log('Component unmounted, skipping auth change');
@@ -24,45 +24,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       
       try {
+        console.log('Updating session and user state...');
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          console.log('User found, fetching profile...');
+          console.log('User is logged in, attempting to fetch or create profile...');
           
+          // Zuerst versuchen, das Profil zu laden
+          console.log('Calling fetchProfile for user ID:', session.user.id);
           let userProfile = await fetchProfile(session.user.id);
+          console.log('Result of fetchProfile:', userProfile ? 'Profile found' : 'No profile found', userProfile);
           
-          // Erstelle Profil NUR bei SIGNED_IN-Event, wenn kein Profil existiert
+          // Wenn kein Profil gefunden und Event ist SIGNED_IN, Profil erstellen
           if (!userProfile && event === 'SIGNED_IN') {
-            console.log('No profile found and user just signed in, creating profile...');
-            userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
+            console.log('No profile found and event is SIGNED_IN, calling createProfile...');
+            try {
+              userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
+              console.log('Result of createProfile:', userProfile ? 'Profile created' : 'Profile creation failed', userProfile);
+            } catch (createError) {
+              console.error('Error during createProfile:', createError);
+              // Optional: set profile to null or handle creation error
+            }
           }
           
           if (mounted) {
+            console.log('Setting profile state:', userProfile);
             setProfile(userProfile);
           }
         } else {
-          console.log('No user, clearing profile');
+          console.log('User is not logged in, clearing profile state.');
           setProfile(null);
         }
         
         // Setze Loading immer auf false, nachdem die Verarbeitung abgeschlossen ist
         if (mounted) {
+          console.log('Setting loading to false.');
           setLoading(false);
         }
       } catch (error) {
-        console.error('Error in auth state change handler:', error);
+        console.error('Caught error in handleAuthChange:', error);
         if (mounted) {
+          console.log('Setting loading to false due to error.');
           setLoading(false);
         }
       }
     };
 
     // Setze den Auth-Listener und verarbeite die initiale Session
+    console.log('Setting up supabase.auth.onAuthStateChange listener.');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
 
+    // Initial check for session is handled by onAuthStateChange firing immediately for current session
+
     return () => {
-      console.log('Cleaning up auth subscription');
+      console.log('Cleaning up auth subscription.');
       mounted = false;
       subscription?.unsubscribe();
     };
