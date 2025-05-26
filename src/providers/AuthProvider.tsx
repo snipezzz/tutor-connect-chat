@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Setze den Auth-Listener und verarbeite die initiale Session
     console.log('Setting up supabase.auth.onAuthStateChange listener.');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthChange);
+    const { data: { subscription } } = supabase().auth.onAuthStateChange(handleAuthChange);
 
     // Initial check for session is handled by onAuthStateChange firing immediately for current session
 
@@ -86,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string, role: string) => {
     console.log('Signing up user:', email, role);
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabase().auth.signUp({
       email,
       password,
       options: {
@@ -106,7 +106,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     console.log('Signing in user:', email);
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase().auth.signInWithPassword({
       email,
       password,
     });
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     console.log('Signing out user');
-    await supabase.auth.signOut();
+    await supabase().auth.signOut();
   };
 
   const value: AuthContextType = {
