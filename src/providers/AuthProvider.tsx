@@ -48,46 +48,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
 
+    console.log('AuthProvider useEffect running');
+    console.log('Value of supabase:', supabase);
+    console.log('Type of supabase:', typeof supabase);
+
+    // Add a check before accessing auth
+    if (!supabase || typeof supabase.auth === 'undefined') {
+      console.error('Supabase client or auth is undefined!', { supabaseClient: supabase, authObject: supabase?.auth });
+      // Potentially add more detailed error handling or a retry mechanism here if needed
+    }
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('Auth state changed:', _event, session);
       if (!mounted) return;
 
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // Profil laden oder erstellen (verwendet Ihre bestehenden Utility-Funktionen)
-        let userProfile = await fetchProfile(session.user.id); // Angenommen fetchProfile erwartet nur userId
+        console.log('User logged in, fetching/creating profile...');
+        let userProfile = await fetchProfile(session.user.id);
 
-        // Wenn kein Profil gefunden und Event ist SIGNED_IN, Profil erstellen
         if (!userProfile && _event === 'SIGNED_IN') {
+          console.log('No profile found and event is SIGNED_IN, creating profile...');
           try {
-             // Angenommen createProfile erwartet userId, userMetadata und session
             userProfile = await createProfile(session.user.id, session.user.user_metadata, session);
           } catch (createError) {
             console.error('Error during profile creation:', createError);
           }
         }
+        console.log('Profile after fetch/create:', userProfile);
         setProfile(userProfile);
       } else {
+        console.log('User logged out or no user.');
         setProfile(null);
       }
 
       setLoading(false);
+      console.log('Loading set to false.');
     });
 
     // Initialen Zustand setzen
+    console.log('Fetching initial session...');
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session data:', session);
       if (mounted) {
         setSession(session);
         setUser(session?.user ?? null);
         // Profil wird durch den onAuthStateChange Listener geladen, falls eine Session existiert
-        setLoading(false);
+        // setLoading(false); // Loading is set by onAuthStateChange now
+        console.log('Initial session processed.');
       }
+    }).catch(error => {
+        console.error('Error fetching initial session:', error);
+         if (mounted) {
+            setLoading(false);
+         }
     });
 
     return () => {
+      console.log('Cleaning up auth subscription.');
       mounted = false;
       subscription?.unsubscribe();
+       console.log('Auth subscription unsubscribed.');
     };
   }, []);
 
