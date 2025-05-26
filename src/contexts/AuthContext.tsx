@@ -21,6 +21,7 @@ interface AuthContextValue {
   user: User | null
   profile: UserProfile | null
   loading: boolean
+  signOut: () => Promise<void>
 }
 
 // Context anlegen
@@ -28,6 +29,7 @@ export const AuthContext = createContext<AuthContextValue>({
   user: null,
   profile: null,
   loading: true,
+  signOut: async () => {},
 })
 
 // Provider-Component
@@ -42,19 +44,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .from('profiles')
       .select('id, name, role')
       .eq('id', userId)
-      .single();
+      .single()
 
     if (error) {
-      console.error('Error loading profile:', error.message);
-      setProfile(null); // Ensure profile is null on error
-      return;
+      console.error('Error loading profile:', error.message)
+      setProfile(null)
+      return
     }
-    
-    // Check if data exists and is not null before setting profile
+
     if (data) {
-      setProfile(data);
+      setProfile(data)
     } else {
-      setProfile(null); // Ensure profile is null if no data returned
+      setProfile(null)
+    }
+  }
+
+  // signOut function to expose via context
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Error signing out:', error.message);
+    } else {
+      // Clear local state after successful sign out
+      setUser(null);
+      setProfile(null);
+      setLoading(false); // Ensure loading is false after sign out
+      console.log('User signed out successfully.');
     }
   };
 
@@ -67,11 +82,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       .then(({ data: { session } }) => {
         const currentUser = session?.user ?? null
         setUser(currentUser)
-        if (currentUser) {
-          return loadProfile(currentUser.id)
-        } else {
-          setProfile(null)
-        }
+        if (currentUser) return loadProfile(currentUser.id)
+        setProfile(null)
       })
       .catch((err) => {
         console.error('Error getting session:', err.message)
@@ -79,7 +91,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(null)
       })
       .finally(() => {
-        // ← hier auf jeden Fall auf false setzen
         setLoading(false)
       })
 
@@ -89,12 +100,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
-      if (currentUser) {
-        loadProfile(currentUser.id)
-      } else {
-        setProfile(null)
-      }
-      // ← und auch hier
+      if (currentUser) loadProfile(currentUser.id)
+      else setProfile(null)
       setLoading(false)
     })
 
@@ -104,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut: handleSignOut }}>
       {children}
     </AuthContext.Provider>
   )
