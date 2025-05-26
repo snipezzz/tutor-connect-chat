@@ -23,7 +23,7 @@ export const createProfile = async (userId: string, userData: any, session: Sess
   };
 
   try {
-    const { data: newProfile, error: insertError } = await supabase
+    const { data: newProfile, error: insertError } = await supabase()
       .from('profiles')
       .insert(profileData)
       .select()
@@ -52,7 +52,7 @@ export const fetchProfile = async (userId: string) => {
     // Wrap the Supabase query builder with Promise.resolve() to get a standard Promise
     const result = await withTimeout(
       Promise.resolve( // Wrap the builder with Promise.resolve
-        supabase
+        supabase()
           .from('profiles')
           .select('*')
           .eq('id', userId)
