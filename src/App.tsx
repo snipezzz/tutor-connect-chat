@@ -7,6 +7,7 @@ import { Routes, Route } from 'react-router-dom'
 import Index from './pages/Index'
 import Auth from './pages/Auth'
 import NotFound from './pages/NotFound'
+import { AuthProvider } from '@/providers/AuthProvider';
 
 const queryClient = new QueryClient()
 
@@ -15,11 +16,13 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
 )
